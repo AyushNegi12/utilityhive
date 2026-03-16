@@ -1,0 +1,56 @@
+name: UtilityHive — Auto Pipeline
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # Runs every 6 hours — FREE on GitHub Actions
+  workflow_dispatch:          # Also runs manually from GitHub UI
+
+jobs:
+  generate-pages:
+    runs-on: ubuntu-latest    # FREE runner
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: pip install groq supabase requests python-dotenv
+
+      - name: Run Gaming niche pipeline
+        run: python pipeline.py --niche gaming --batch 15
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+
+      - name: Run Tools niche pipeline (offset run)
+        if: github.event.schedule == '0 12 * * *'
+        run: python pipeline.py --niche tools --batch 15
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+
+      - name: Check arbitrage opportunities
+        run: python pipeline.py --arb
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
+# HOW TO SET SECRETS:
+# GitHub repo → Settings → Secrets and variables → Actions → New repository secret
+# Add: GROQ_API_KEY, SUPABASE_URL, SUPABASE_KEY, VERCEL_DEPLOY_HOOK
